@@ -17,6 +17,9 @@
 //#include "game.h"
 #include "../core/state.h"
 
+
+#include "fmt/printf.h"
+
 const int StateForBreakthroughNumActions = 64 * 3;
 const int StateForBreakthroughX = 2;
 const int StateForBreakthroughY = 8;
@@ -37,6 +40,7 @@ class ActionForBreakthrough : public _Action {
   }
 };
 
+template<bool fixedPolicy = true>
 class StateForBreakthrough : public State, BTBoard {
  public:
   StateForBreakthrough(int seed)
@@ -46,21 +50,6 @@ class StateForBreakthrough : public State, BTBoard {
 
   virtual ~StateForBreakthrough() {
   }
-
-  int parseAction(const std::string& str) {
-  int x = int(str[0]) - 48;
-  int y = int(str[1]) - 48;
-  int z = int(str[2]) - 48;
-  try {
-    for (unsigned k=0; k<_legalActions.size(); k++)
-      if (_legalActions[k]->GetX() == x and _legalActions[k]->GetY() == y and _legalActions[k]->GetZ() == z)
-        return k;
-  }
-  catch (...) {
-    std::cout << "failed to parse action" << std::endl;
-  }
-  return -1;
-}
 
   virtual void Initialize() override {
     // People implementing classes should not have much to do in _moves; just
@@ -105,6 +94,29 @@ class StateForBreakthrough : public State, BTBoard {
     return std::make_unique<StateForBreakthrough>(*this);
   }
 
+  virtual int parseAction(const std::string& str) {
+    for (size_t i = 0; i != _legalActions.size(); ++i) {
+      if (str == actionDescription(*_legalActions[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  std::string actionDescription(const _Action &action) const override {
+    int dir = action.GetX();
+    int x = action.GetY();
+    int y = action.GetZ();
+    int tx = x;
+    int ty = y + (turn == Black ? 1 : -1);
+    if (dir == 0) {
+      --tx;
+    } else if (dir == 2) {
+      ++tx;
+    }
+    return fmt::sprintf("%c%d%c%d", 'a' + x, BTDy - y , 'a' + tx, BTDy - ty);
+  }
+
   void findActions(int color) {
     BTMove moves[BTMaxLegalMoves];
     int nb = legalBTMoves(color, moves);
@@ -133,7 +145,7 @@ class StateForBreakthrough : public State, BTBoard {
         StateForBreakthroughX * StateForBreakthroughY * StateForBreakthroughZ;
     std::fill(_features.begin(), _features.begin() + numFeats, 0.);
     for (int i = 0; i < 64; i++) {
-      auto value = board[i % 8][i / 8];
+      auto value = fixedPolicy ? board[i / 8][i % 8] : board[i % 8][i / 8];
       if (value == Black)
         _features[i] = 1;
       else if (value == White)
@@ -204,9 +216,9 @@ class StateForBreakthrough : public State, BTBoard {
   }
 
   std::string stateDescription() const override {
-    std::string s (" 0 1 2 3 4 5 6 7\n");
+    std::string s;
     for (int i = 0; i < BTDy; i++) {
-      s += std::to_string (i);
+      s += std::to_string(BTDy - i);
       for (int j = 0; j < BTDx; j++)
         if (board[j][i] == Empty)
           s += " +";
@@ -216,7 +228,7 @@ class StateForBreakthrough : public State, BTBoard {
           s += " O";
       s += " \n";
     }
-    s += " \n";
+    s += "  a b c d e f g h \n";
     return s;
   }
 };

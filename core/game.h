@@ -74,7 +74,9 @@ class Game : public tube::EnvThread {
                        randomFeatures, oneFeature);
     gameName_ = gameName;
     if (isGameNameMatched({"Connect6"})) {
-      state_ = std::make_unique<Connect6::StateForConnect6>(seed);
+      state_ = std::make_unique<Connect6::StateForConnect6<1>>(seed);
+    } else if (isGameNameMatched({"Connect6v2"})) {
+      state_ = std::make_unique<Connect6::StateForConnect6<2>>(seed);
     } else if (isGameNameMatched({"Connect4"})) {
       state_ = std::make_unique<StateForConnectFour>(seed);
       /*
@@ -220,7 +222,9 @@ to look into this) if the strategy is identical to knuth’s.
     } else if (isGameNameMatched({"Havannah10"})) {
       state_ = std::make_unique<Havannah::State<10, false, false>>(seed);
     } else if (isGameNameMatched({"Breakthrough"})) {
-      state_ = std::make_unique<StateForBreakthrough>(seed);
+      state_ = std::make_unique<StateForBreakthrough<false>>(seed);
+    } else if (isGameNameMatched({"BreakthroughV2"})) {
+      state_ = std::make_unique<StateForBreakthrough<true>>(seed);
     } else if (gameName.rfind("Ludii", 0) == 0) {
 #ifdef NO_JAVA
       throw std::runtime_error(
@@ -229,16 +233,25 @@ to look into this) if the strategy is identical to knuth’s.
       std::string ludii_name = gameName.substr(5);
       Ludii::JNIUtils::InitJVM("");  // Use default /ludii/Ludii.jar path
       JNIEnv* jni_env = Ludii::JNIUtils::GetEnv();
-      Ludii::LudiiGameWrapper game_wrapper(jni_env, ludii_name);
-      state_ = std::make_unique<Ludii::LudiiStateWrapper>(
-          seed, jni_env, std::move(game_wrapper));
+
+      if (jni_env) {
+        Ludii::LudiiGameWrapper game_wrapper(ludii_name);
+        state_ = std::make_unique<Ludii::LudiiStateWrapper>(
+            seed, std::move(game_wrapper));
+      } else {
+        // Probably means we couldn't find the Ludii.jar file
+        throw std::runtime_error(
+            "Failed to create Ludii game due to missing JNI Env!");
+      }
 #endif
     } else if (isGameNameMatched({"Tristannogo"})) {
       state_ = std::make_unique<StateForTristannogo>(seed);
     } else if (isGameNameMatched({"OuterOpenGomoku", "OOGomoku"})) {
       state_ = std::make_unique<StateForOOGomoku>(seed);
     } else if (isGameNameMatched({"Minishogi"})) {
-      state_ = std::make_unique<StateForMinishogi>(seed);
+      state_ = std::make_unique<StateForMinishogi<1>>(seed);
+    } else if (isGameNameMatched({"MinishogiV2"})) {
+      state_ = std::make_unique<StateForMinishogi<2>>(seed);
     } else if (isGameNameMatched({"Surakarta"})) {
       state_ = std::make_unique<StateForSurakarta>(seed);
     } else if (isGameNameMatched({"DiceShogi"})) {
@@ -344,6 +357,10 @@ to look into this) if the strategy is identical to knuth’s.
     piMask_.push_back(piMask);
     v_.push_back(v);
     dispatchers_.push_back(dispatcher);
+  }
+
+  const std::vector<int64_t>& getRawFeatSize() {
+    return state_->GetRawFeatureSize();
   }
 
   const std::vector<int64_t>& getFeatSize() {

@@ -156,7 +156,9 @@ class State : public mcts::State {
     auto rngs = _moveRngs;
     s->reset();
     for (size_t i = 0; i != moves.size(); ++i) {
-      // if (!str.empty()) str += " ";
+      if (!str.empty()) {
+        str += " ";
+      }
       str += s->actionDescription(*s->GetLegalActions().at(moves.at(i)));
       std::tie(s->_rng, s->forcedDice) = rngs.at(i);
       s->forward(moves.at(i));
@@ -317,12 +319,11 @@ class State : public mcts::State {
   }
 
   virtual std::string actionsDescription() {
-    std::stringstream ss;
-    for (int i = 0; i < (int)_legalActions.size(); i++) {
-      _Action& action = *(_legalActions[i]);
-      ss << "Action " << i << ": " << actionDescription(action) << std::endl;
+    std::string str;
+    for (auto& v : _legalActions) {
+      str += actionDescription(*v) + " ";
     }
-    return ss.str();
+    return str;
   }
 
   virtual int parseAction(const std::string& str) {
@@ -523,6 +524,13 @@ class State : public mcts::State {
     return _hash;
   }
 
+  const std::vector<float>& GetRawFeatures() const {
+    return _features;
+  }
+  const std::vector<int64_t>& GetRawFeatureSize() const {
+    return _featSize;
+  }
+
   // Returns GetXSize x GetYSize x GetZSize float input for the NN.
   const std::vector<float>& GetFeatures() const {
     return _fullFeatures.empty() ? _features : _fullFeatures;
@@ -548,6 +556,8 @@ class State : public mcts::State {
     _turnFeaturesOffset = 0;
     _outFeatSize.clear();
     _fullFeatures.clear();
+    _features.clear();
+    _legalActions.clear();
     Initialize();
   }
 
